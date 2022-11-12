@@ -8,7 +8,6 @@ import json
 from  build_data import * 
 import random
 import wandb
-from evalute_embedding import svc, linearsvc
 from models.Encoder import HGCL
 from eval import * 
 from utils import generate_split
