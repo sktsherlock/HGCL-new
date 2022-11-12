@@ -38,8 +38,8 @@ class EdgeNet(torch.nn.Module):
         self.projection_head_2 = MLP(in_channels=self.hidden, hidden_channels=self.hidden, out_channels=128)
         self.projection_head_3 = MLP(in_channels=self.hidden, hidden_channels=self.hidden, out_channels=128)
 
-        self.pool1 = EdgePooling(self.hidden, ratio=self.pooling_ratio, add_to_edge_score = self.add_to_edge_score)
-        self.pool2 = EdgePooling(self.hidden, ratio=self.pooling_ratio, add_to_edge_score = self.add_to_edge_score)
+        self.pool1 = EdgePooling(self.hidden, dropout=self.pooling_ratio, add_to_edge_score = self.add_to_edge_score)
+        self.pool2 = EdgePooling(self.hidden, dropout=self.pooling_ratio, add_to_edge_score = self.add_to_edge_score)
 
 
     def forward(self, data):
