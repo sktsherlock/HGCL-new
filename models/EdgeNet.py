@@ -61,7 +61,7 @@ class EdgeNet(torch.nn.Module):
         proj_1 = global_add_pool(local_proj_1, batch_0)
         #proj_1 = torch.cat([gmp(local_proj_1, batch_0), gap(local_proj_1, batch_0)], dim=1)
 
-        x_1, edge_index_1, batch_1, _, = self.pool1(x, edge_index_0, batch_0)
+        x_1, edge_index_1, batch_1, _ = self.pool1(x, edge_index_0, batch_0)
         #g1 = torch.cat([gmp(x_1, batch_1), gap(x_1, batch_1)], dim=1)
         
 
@@ -77,7 +77,7 @@ class EdgeNet(torch.nn.Module):
         local_proj_2 = self.projection_head_2(x)
         proj_2 = global_add_pool(local_proj_2, batch_1)
         #proj_2 = torch.cat([gmp(local_proj_2, batch_1), gap(local_proj_2, batch_1)], dim=1)
-        x_2, edge_index_2,  batch_2, _,  = self.pool2(x, edge_index_1, batch_1)
+        x_2, edge_index_2,  batch_2, _  = self.pool2(x, edge_index_1, batch_1)
         #g2 = torch.cat([gmp(x_2, batch_2), gap(x_2, batch_2)], dim=1)
         
 
