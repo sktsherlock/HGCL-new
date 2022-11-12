@@ -103,7 +103,8 @@ class EdgeNet(torch.nn.Module):
         y = []
         with torch.no_grad():
             for data in loader:
-                # data = data[0]
+                if data.x is None:
+                    data.x = torch.ones(data.num_nodes, 1).to(device)
                 data.to(device)
                 x, *_ = self(data)
                 ret.append(x)
