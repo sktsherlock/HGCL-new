@@ -77,7 +77,8 @@ def train(cf, model, dataloader):
             optimizer.step()
             loss_all += loss.item()
         print('Epoch {}, Loss {}'.format(epoch, loss_all / len(dataloader)))
-        wandb.log({"Loss": loss_all / len(dataloader), "p1_p2_loss": innercl(p1, p2), })
+        wandb.log({"Loss": loss_all, "p1_p2_loss": innercl(p1, p2), "g0_loss": innercl(g0_1, g0_2),
+                   "g1_loss": innercl(g1_1, g1_2), "g2_loss": innercl(g2_1, g2_2)})
         if epoch % log_interval == 0:
             model.eval()
             x, y = model.get_embeddings(cf.device, dataloader)
