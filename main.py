@@ -11,8 +11,8 @@ import wandb
 from models.Encoder import HGCL
 from eval import *
 from utils import generate_split
-
 # ! wandb
+WANDB_API_KEY = '9e4f340d3a081dd1d047686edb29d362c8933632'
 torch.set_printoptions(threshold=np.inf)
 
 warnings.filterwarnings("ignore")
@@ -20,7 +20,7 @@ parser = argparse.ArgumentParser(description="Graph Pooling")
 parser.add_argument('--batch_size', type=int, default=64, help='batch size')
 parser.add_argument('--lr', type=float, default=0.001, help='learning rate')
 parser.add_argument('--dataset', type=str, default='MUTAG',
-                    help='MUTAG/DD/COLLAB/PTC_MR/IMDB-BINARY/REDDIT-BINARY/REDDIT-MULTI-5K/NCI1/PROTEINS')
+                        help='MUTAG/DD/COLLAB/PTC_MR/IMDB-BINARY/REDDIT-BINARY/REDDIT-MULTI-5K/NCI1/PROTEINS')
 parser.add_argument('--epochs', type=int, default=40, help='maximum number of epochs')
 parser.add_argument('--seed', type=int, default=0, help='random seeds')
 parser.add_argument('--pooling', type=str, default='topk', help='Different pooling methods')
@@ -33,8 +33,9 @@ parser.add_argument('--bleta', type=float, default=0.5, help='control the weight
 parser.add_argument('--task', type=str, default='Graph', help='Graph classification or Node classification')
 
 args = parser.parse_args()
+os.environ['WANDB_API_KEY'] = WANDB_API_KEY
 wandb.config = args
-wandb.init(project="HGCL", entity="sher-hao", config=args)
+wandb.init(project="HGCL", entity="sher-hao", config=args, reinit=True)
 
 
 def innercl(proj_1, proj_2):
