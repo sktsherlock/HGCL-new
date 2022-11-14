@@ -3,8 +3,6 @@ import sys
 import subprocess as sp
 from pathlib import Path
 
-from utils.settings import *
-from private.exp_settings import *
 
 
 PROJ_DIR = osp.abspath(osp.dirname(__file__))[0]
