@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 PROJ_DIR = osp.abspath(osp.dirname(__file__))[0]
-ptint(PROJ_DIR)
+print(PROJ_DIR)
 PROJ_NAME = 'HGCL-new'
 env_vars = {
     # PATHS
