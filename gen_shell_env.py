@@ -8,6 +8,13 @@ from pathlib import Path
 PROJ_DIR = osp.abspath(osp.dirname(__file__))
 print(PROJ_DIR)
 PROJ_NAME = 'HGCL-new'
+LINUX_HOME = str(Path.home())
+CONDA_ENV_NAME = 'ct'
+SV_INIT_CMDS = [
+    f'source {LINUX_HOME}/miniconda/etc/profile.d/conda.sh;conda activate {CONDA_ENV_NAME}',
+    f'alias tr="python main.py"',
+]
+
 env_vars = {
     # PATHS
     'LP': PROJ_DIR,  # Local Path
