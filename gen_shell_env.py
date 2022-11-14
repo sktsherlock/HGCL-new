@@ -19,6 +19,7 @@ env_vars = {
     # PATHS
     'LP': PROJ_DIR,  # Local Path
     'PROJ_NAME': PROJ_NAME,  # PROJ Name
+    'HTOP_FILE': HTOP_FILE
 }
 
 server_setting_file = f'{PROJ_DIR}/shell_env.sh'
