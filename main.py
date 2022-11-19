@@ -55,7 +55,7 @@ def set_seed(seed):
 
 
 def train(cf, model, dataloader):
-    optimizer = torch.optim.Adam(model.parameters(), lr=cf.lr)
+    optimizer = torch.optim.Adam(model.parameters(), lr=cf.lr, weight_decay=5e-4)
     log_interval = 1
     best_epochs = 0
     best_acc = 0
