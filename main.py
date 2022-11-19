@@ -56,7 +56,7 @@ def set_seed(seed):
 
 def train(cf, model, dataloader):
     optimizer = torch.optim.Adam(model.parameters(), lr=cf.lr)
-    log_interval = 5
+    log_interval = 1
     best_epochs = 0
     best_acc = 0
     best_std = 0
@@ -111,7 +111,7 @@ def train_node(cf, model, dataset):
 
         _, p1, p2, p3, g0_1, g0_2, g1_1, g1_2, g2_1, g2_2 = model(data)
 
-        loss = cf.alpha * innercl(p1, p2) + (1 - cf.alpha) * (innercl(p2, p3) + innercl(p1, p3)) + cf.bleta * innercl(g0_1,g0_2) + (1 - cf.bleta) * (
+        loss = cf.alpha * innercl(p1, p2) + (1 - cf.alpha) * (innercl(p2, p3) + innercl(p1, p3)) + cf.bleta * innercl(g0_1, g0_2) + (1 - cf.bleta) * (
                            innercl(g1_1, g1_2) + innercl(g2_1, g2_2))
         loss.backward()
         optimizer.step()
