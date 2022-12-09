@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from torch import nn
 from tqdm import tqdm
 from torch.optim import Adam
-from torch_geometric.nn import GINConv, global_add_pool
+from torch_geometric.nn import GINConv, global_add_pool, GCNConv
 from dgl.nn.pytorch import GraphConv
 from dgl.nn.pytorch.glob import SumPooling
 from utils import local_global_loss_
@@ -15,6 +15,98 @@ from torch.nn import Sequential, Linear, ReLU
 def make_gin_conv(input_dim, out_dim):
     return GINConv(nn.Sequential(nn.Linear(input_dim, out_dim), nn.ReLU(), nn.Linear(out_dim, out_dim)))
 
+def add_noise(x,  tradeoff):
+    if tradeoff > 0:
+        if tradeoff <= 1:
+            x = (1 - tradeoff) * x + torch.randn_like(x) * tradeoff
+        else:
+            raise ValueError('tradeoff <= 1')
+    return x
+
+class GConv(nn.Module):
+    """
+    GIN convolution module.
+    """
+    def __init__(self, input_dim, hidden_dim, num_layers):
+        super(GConv, self).__init__()
+        self.layers = nn.ModuleList()
+        self.batch_norms = nn.ModuleList()
+
+        for i in range(num_layers):
+            if i == 0:
+                self.layers.append(make_gin_conv(input_dim, hidden_dim))
+            else:
+                self.layers.append(make_gin_conv(hidden_dim, hidden_dim))
+            self.batch_norms.append(nn.BatchNorm1d(hidden_dim))
+
+        project_dim = hidden_dim * num_layers
+        self.project = torch.nn.Sequential(
+            nn.Linear(project_dim, project_dim),
+            nn.ReLU(inplace=True),
+            nn.Linear(project_dim, project_dim))
+
+    def forward(self, x, edge_index, batch):
+        z = x
+        zs = []
+        for conv, bn in zip(self.layers, self.batch_norms):
+            z = conv(z, edge_index)
+            z = F.relu(z)
+            z = bn(z)
+            zs.append(z)
+        gs = [global_add_pool(z, batch) for z in zs]
+        z, g = [torch.cat(x, dim=1) for x in [zs, gs]]
+        return z, g
+
+class Encoder(nn.Module):
+    def __init__(self, encoder, augmentor, pooling, encoder2):
+        super(Encoder, self).__init__()
+        self.encoder = encoder
+        self.augmentor = augmentor
+        self.pool = pooling
+        self.encoder2 = encoder2
+
+    def forward(self, x, edge_index, batch):
+        aug1, aug2 = self.augmentor
+        x1, edge_index1, edge_weight1 = aug1(x, edge_index)
+        x2, edge_index2, edge_weight2 = aug2(x, edge_index)
+        z, g = self.encoder(x, edge_index, batch)
+        z1, g1 = self.encoder(x1, edge_index1, batch)
+        z2, g2 = self.encoder(x2, edge_index2, batch)
+
+        # 中间层
+        x_1, edge_index_1, edge_attr_1, batch_1, _, _  = self.pool(z, edge_index, batch=batch)
+        x3, edge_index3, edge_weight3 = aug1(x_1, edge_index_1)
+        x4, edge_index4, edge_weight4 = aug2(x_1, edge_index_1)
+        z3, g3 = self.encoder2(x_1, edge_index_1, batch_1)
+        z4, g4 = self.encoder2(x3, edge_index3, batch_1)
+        z5, g5 = self.encoder2(x4, edge_index4, batch_1)
+
+        return z, g, g3, g1, g2, g4, g5, batch_1
+
+class Node_Encoder(nn.Module):
+    def __init__(self, encoder, augmentor, hidden_dim, proj_dim):
+        super(Node_Encoder, self).__init__()
+        self.encoder = encoder
+        self.augmentor = augmentor
+
+        self.fc1 = torch.nn.Linear(hidden_dim, proj_dim)
+        self.fc2 = torch.nn.Linear(proj_dim, hidden_dim)
+
+    def forward(self, x, edge_index, edge_weight=None, tradeoff=0.1):
+        aug1, aug2 = self.augmentor
+        x1, edge_index1, edge_weight1 = aug1(x, edge_index, edge_weight)
+        x2, edge_index2, edge_weight2 = aug2(x, edge_index, edge_weight)
+        z = self.encoder(x, edge_index, edge_weight)
+        z1 = self.encoder(x1, edge_index1, edge_weight1)
+        z2 = self.encoder(x2, edge_index2, edge_weight2)
+        z1 = add_noise(z1, tradeoff=tradeoff)
+        z2 = add_noise(z2, tradeoff=tradeoff)
+
+        return z, z1, z2
+
+    def project(self, z: torch.Tensor) -> torch.Tensor:
+        z = F.elu(self.fc1(z))
+        return self.fc2(z)
 
 class GIN(nn.Module):
     """
@@ -171,50 +263,18 @@ class MVGRL(nn.Module):
 
         return loss
 
+class GCN_Conv(torch.nn.Module):
+    def __init__(self, input_dim, hidden_dim, activation, num_layers):
+        super(GCN_Conv, self).__init__()
+        self.activation = activation()
+        self.layers = torch.nn.ModuleList()
+        self.layers.append(GCNConv(input_dim, hidden_dim, cached=False))
+        for _ in range(num_layers - 1):
+            self.layers.append(GCNConv(hidden_dim, hidden_dim, cached=False))
 
-class HGCL(nn.Module):
-    def __init__(self, out_dim, encoder, augmentor):
-        super(HGCL, self).__init__()
-        self.local_mlp = MLP(out_dim, out_dim)
-        self.global_mlp = MLP(out_dim, out_dim)
-        self.augmentor = augmentor
-        self.encoder1 = encoder.conv1
-        self.encoder2 = encoder.conv2
-        self.encoder3 = encoder.conv3
-
-    def forward(self, x1, x2, x3, edge_index1, edge_index2, edge_index3, batch1, batch2, batch3):
-        aug1, aug2 = self.augmentor
-
-        x1_1, edge_index1_1, edge_weight1_1 = aug1(x1, edge_index1)
-        x1_2, edge_index1_2, edge_weight1_2 = aug2(x1, edge_index1)
-        z1_1, g1_1 = sefl.encoder1(x1_1, edge_index1_1, edge_weight1_1, batch1)
-        z1_2, g1_2 = sefl.encoder1(x1_2, edge_index1_2, edge_weight1_2, batch1)
-        z1_1 = self.local_mlp(z1_1)
-        z1_2 = self.local_mlp(z1_2)
-        g1_1 = self.global_mlp(g1_1)
-        g1_2 = self.global_mlp(g1_2)
-        loss1 = local_global_loss_(z1_1, g1_2, batch1) + local_global_loss_(z1_2, g1_1, batch1)
-
-        x2_1, edge_index2_1, edge_weight2_1 = aug1(x2, edge_index2)
-        x2_2, edge_index2_2, edge_weight2_2 = aug2(x2, edge_index2)
-        z2_1, g2_1 = sefl.encoder2(x2_1, edge_index2_1, edge_weight2_1, batch2)
-        z2_2, g2_2 = sefl.encoder2(x2_2, edge_index2_2, edge_weight2_2, batch2)
-        z2_1 = self.local_mlp(z2_1)
-        z2_2 = self.local_mlp(z2_2)
-        g2_1 = self.global_mlp(g2_1)
-        g2_2 = self.global_mlp(g2_2)
-        loss2 = local_global_loss_(z2_1, g2_2, batch2) + local_global_loss_(z2_2, g2_1, batch2)
-
-        x3_1, edge_index3_1, edge_weight3_1 = aug1(x3, edge_index3)
-        x3_2, edge_index3_2, edge_weight3_2 = aug2(x3, edge_index3)
-        z3_1, g3_1 = sefl.encoder3(x3_1, edge_index3_1, edge_weight3_1, batch3)
-        z3_2, g3_2 = sefl.encoder3(x3_2, edge_index3_2, edge_weight3_2, batch3)
-        z3_1 = self.local_mlp(z3_1)
-        z3_2 = self.local_mlp(z3_2)
-        g3_1 = self.global_mlp(g3_1)
-        g3_2 = self.global_mlp(g3_2)
-        loss3 = local_global_loss_(z3_1, g3_2, batch3) + local_global_loss_(z3_2, g3_1, batch3)
-
-        loss = loss1 + loss2 + loss3
-
-        return loss
+    def forward(self, x, edge_index, edge_weight=None):
+        z = x
+        for i, conv in enumerate(self.layers):
+            z = conv(z, edge_index, edge_weight)
+            z = self.activation(z)
+        return z

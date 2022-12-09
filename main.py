@@ -11,6 +11,7 @@ import wandb
 from models.Encoder import HGCL
 from eval import *
 from utils import generate_split
+
 # ! wandb
 WANDB_API_KEY = '9e4f340d3a081dd1d047686edb29d362c8933632'
 torch.set_printoptions(threshold=np.inf)
@@ -19,18 +20,20 @@ warnings.filterwarnings("ignore")
 parser = argparse.ArgumentParser(description="Graph Pooling")
 parser.add_argument('--batch_size', type=int, default=64, help='batch size')
 parser.add_argument('--lr', type=float, default=0.001, help='learning rate')
-parser.add_argument('--dataset', type=str, default='MUTAG',
-                        help='MUTAG/DD/COLLAB/PTC_MR/IMDB-BINARY/REDDIT-BINARY/REDDIT-MULTI-5K/NCI1/PROTEINS')
-parser.add_argument('--epochs', type=int, default=40, help='maximum number of epochs')
+parser.add_argument('--dataset', type=str, default='DD',
+                    help='MUTAG/DD/COLLAB/PTC_MR/IMDB-BINARY/REDDIT-BINARY/REDDIT-MULTI-5K/NCI1/PROTEINS')
+parser.add_argument('--epochs', type=int, default=100, help='maximum number of epochs')
 parser.add_argument('--seed', type=int, default=0, help='random seeds')
-parser.add_argument('--pooling', type=str, default='topk', help='Different pooling methods')
-parser.add_argument('--conv', type=str, default='GCN', help='Graph conv methods')
+parser.add_argument('--pooling', type=str, default='ASAP', help='Different pooling methods')
+parser.add_argument('--conv', type=str, default='GIN', help='Graph conv methods')
 parser.add_argument('--hidden', type=int, default=128, help='hidden layers')
 parser.add_argument('--pooling_ratio', type=float, default=0.8, help='pooling ratio')
 parser.add_argument('--add_to_edge_score', type=float, default=0.5, help='add_to_edge_score')
-parser.add_argument('--alpha', type=float, default=0.8, help='control the weight of the hierarcial cl')
-parser.add_argument('--bleta', type=float, default=0.5, help='control the weight of the innercl')
+parser.add_argument('--alpha', type=float, default=0.2, help='control the weight of the hierarcial cl')
+parser.add_argument('--bleta', type=float, default=0.2, help='control the weight of the innercl')
 parser.add_argument('--task', type=str, default='Graph', help='Graph classification or Node classification')
+parser.add_argument('--up', type=float, default=0.3, help='the threshold of the tradeoff')
+parser.add_argument('--warmup_epochs', type=int, default=100, help='the number of warmup_epochs')
 
 args = parser.parse_args()
 os.environ['WANDB_API_KEY'] = WANDB_API_KEY
@@ -56,7 +59,7 @@ def set_seed(seed):
 
 def train(cf, model, dataloader):
     optimizer = torch.optim.Adam(model.parameters(), lr=cf.lr, weight_decay=5e-4)
-    log_interval = 1
+    log_interval = 2
     best_epochs = 0
     best_acc = 0
     best_std = 0
@@ -64,22 +67,22 @@ def train(cf, model, dataloader):
     for epoch in pbar:
         model.train()
         loss_all = 0.0
+        tradeoff = diffusion(cf, epoch=epoch)
         for i, data in enumerate(dataloader):
             optimizer.zero_grad()
             data = data.to(cf.device)
 
             if data.x is None:
                 data.x = torch.ones(data.num_nodes, 1).to(cf.device)
-            _, p1, p2, p3, g0_1, g0_2, g1_1, g1_2, g2_1, g2_2 = model(data)
+            _, p1, p2, g0_1, g0_2, g1_1, g1_2 = model(data, tradeoff)
 
-            loss = cf.alpha * innercl(p1, p2) + (1 - cf.alpha) * (innercl(p2, p3) + innercl(p1, p3)) + cf.bleta * innercl(g0_1,g0_2) + (1 - cf.bleta) * (
-                               innercl(g1_1, g1_2) + innercl(g2_1, g2_2))
+            loss = innercl(g0_1, g0_2) + cf.alpha * (innercl(p1, p2) + innercl(g1_1, g1_2))
             loss.backward()
             optimizer.step()
             loss_all += loss.item()
-        print('Epoch {}, Loss {}'.format(epoch, loss_all / len(dataloader)))
+        print('Epoch {}, Loss {}'.format(epoch, loss_all))
         wandb.log({"Loss": loss_all, "p1_p2_loss": innercl(p1, p2), "g0_loss": innercl(g0_1, g0_2),
-                   "g1_loss": innercl(g1_1, g1_2), "g2_loss": innercl(g2_1, g2_2)})
+                   "g1_loss": innercl(g1_1, g1_2)})
         if epoch % log_interval == 0:
             model.eval()
             x, y = model.get_embeddings(cf.device, dataloader)
@@ -93,6 +96,7 @@ def train(cf, model, dataloader):
                 wandb.run.summary["best_acc"] = acc_mean
                 wandb.run.summary["best_epoch"] = epoch
     wandb.log({'Best Epochs': best_epochs, 'Best Acc': best_acc, 'Best Acc Std': best_std})
+
 
 def train_node(cf, model, dataset):
     # load data
@@ -109,16 +113,15 @@ def train_node(cf, model, dataset):
         optimizer.zero_grad()
         data = data.to(cf.device)
 
-        _, p1, p2, p3, g0_1, g0_2, g1_1, g1_2, g2_1, g2_2 = model(data)
+        _, p1, p2, g0_1, g0_2, g1_1, g1_2 = model(data)
 
-        loss = cf.alpha * innercl(p1, p2) + (1 - cf.alpha) * (innercl(p2, p3) + innercl(p1, p3)) + cf.bleta * innercl(g0_1, g0_2) + (1 - cf.bleta) * (
-                           innercl(g1_1, g1_2) + innercl(g2_1, g2_2))
+        loss = cf.alpha * innercl(p1, p2) + innercl(g0_1, g0_2) + cf.bleta * innercl(g1_1, g1_2)
         loss.backward()
         optimizer.step()
         loss_all += loss.item()
         print('Epoch {}, Loss {}'.format(epoch, loss_all))
         wandb.log({"Loss": loss_all, "p1_p2_loss": innercl(p1, p2), "g0_loss": innercl(g0_1, g0_2),
-                   "g1_loss": innercl(g1_1, g1_2), "g2_loss": innercl(g2_1, g2_2)})
+                   "g1_loss": innercl(g1_1, g1_2)})
         if epoch % log_interval == 0:
             acc = test(cf, model, data)
             wandb.log({"Acc": acc})
@@ -127,6 +130,7 @@ def train_node(cf, model, dataset):
                 best_acc = acc
                 best_epochs = epoch
     wandb.log({'Best Epochs': best_epochs, 'Best Acc': best_acc})
+
 
 def test(cf, model, data):
     model.eval()
@@ -144,6 +148,16 @@ def test(cf, model, data):
         acc = log_regression(z, data, evaluator, split='rand:0.1', num_epochs=3000, preload_split=split)['acc']
 
     return
+
+
+def diffusion(args, epoch, way='linear'):
+    if way == 'linear':
+        tradeoff = torch.clamp(torch.tensor(epoch / args.warmup_epochs), 0.02, args.up).float()
+    else:
+        raise ValueError('the other way is not implement')
+    return tradeoff
+    # Adamw
+
 
 def main():
     # 检测是否有可用GPU
