@@ -193,8 +193,6 @@ def main():
                 wandb.log({"loss": loss, "Mix_CL_loss": loss_0, "Hierarchical_loss": loss_1})
                 pbar.update()
 
-        test_result = test(encoder_model, dataloader)
-        Accuracy.append(test_result)
         wandb.log({'Acc': acc_mean})
 
         wandb.log({'Best Acc': max(Accuracy)})
