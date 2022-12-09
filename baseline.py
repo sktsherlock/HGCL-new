@@ -37,6 +37,8 @@ parser.add_argument('--pooling_ratio', type=float, default=0.8, help='pooling ra
 parser.add_argument('--edge_drop', type=float, default=0.2, help='pooling ratio')
 parser.add_argument('--feature_mask', type=float, default=0.2, help='pooling ratio')
 parser.add_argument('--up', type=float, default=0.4, help='the threshold of the tradeoff')
+parser.add_argument('--eval_patience', type=int, default=10, help='the patience of evaluate')
+parser.add_argument('--num_runs', type=int, default=5, help='the patience of evaluate')
 parser.add_argument('--warmup_epochs', type=int, default=100, help='the number of warmup_epochs')
 parser.add_argument('--test_init', type=bool, default=False, help='whether test the initial state')
 
@@ -155,7 +157,7 @@ def main():
     else:
         args.device = "cpu"
     Acc_Mean = []
-    for i in range(5):
+    for i in range(args.num_runs):
         set_seed(i)
 
         dataset = TUDataset(osp.join('data', args.dataset), name=args.dataset)
@@ -176,7 +178,7 @@ def main():
         contrast_model = DualBranchContrast(loss=L.InfoNCE(tau=0.2), mode='G2G').to(args.device)
         optimizer = Adam(encoder_model.parameters(), lr=args.lr)
 
-        log_interval = 10
+        log_interval = args.eval_patience
         Accuracy = []
         with tqdm(total=args.epochs, desc=f'(T){i}') as pbar:
             for epoch in range(1, args.epochs + 1):
