@@ -188,7 +188,7 @@ def main():
                     wandb.log({'Acc': acc_mean})
 
                 pbar.set_postfix({'loss': loss})
-                wandb.log({"loss": loss, "Graph_loss": loss_0, "Subgraph_loss": loss_1})
+                wandb.log({"loss": loss, "Mix_CL_loss": loss_0, "Hierarchical_loss": loss_1})
                 pbar.update()
 
         test_result = test(encoder_model, dataloader)
