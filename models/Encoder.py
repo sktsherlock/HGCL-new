@@ -75,10 +75,10 @@ class Encoder(nn.Module):
         z2, g2 = self.encoder(x2, edge_index2, batch)
 
         # 中间层
-        if self.pool_way is not 'Edge':
-            x_1, edge_index_1, edge_attr_1, batch_1, _, _  = self.pool(z, edge_index, batch=batch)
-        else:
+        if self.pool_way  in {'EdgePooling', 'Edge'}:
             x_1, edge_index_1, batch_1, _ = self.pool(z, edge_index, batch=batch)
+        else:
+            x_1, edge_index_1, edge_attr_1, batch_1, _, _ = self.pool(z, edge_index, batch=batch)
         x3, edge_index3, edge_weight3 = aug1(x_1, edge_index_1)
         x4, edge_index4, edge_weight4 = aug2(x_1, edge_index_1)
         z3, g3 = self.encoder2(x_1, edge_index_1, batch_1)
