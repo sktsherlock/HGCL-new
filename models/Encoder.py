@@ -77,6 +77,8 @@ class Encoder(nn.Module):
         # 中间层
         if self.pool_way  in {'EdgePooling', 'Edge'}:
             x_1, edge_index_1, batch_1, _ = self.pool(z, edge_index, batch=batch)
+        elif self.pool_way  in {'ASAPooling', 'ASAP'}:
+            x_1, edge_index_1, edge_attr_1, batch_1, _, = self.pool(z, edge_index, batch=batch)
         else:
             x_1, edge_index_1, edge_attr_1, batch_1, _, _ = self.pool(z, edge_index, batch=batch)
         x3, edge_index3, edge_weight3 = aug1(x_1, edge_index_1)
