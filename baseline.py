@@ -185,7 +185,7 @@ def main():
             pooling = ASAPooling(args.hidden * args.layers, ratio=args.pooling_ratio)
         else:
             raise ValueError('Not implement')
-        encoder_model = Encoder(encoder=gconv, augmentor=(aug1, aug2), pooling=pooling, encoder2=gconv2).to(args.device)
+        encoder_model = Encoder(encoder=gconv, augmentor=(aug1, aug2), pooling=pooling, encoder2=gconv2, pool_way=args.pooling).to(args.device)
         contrast_model = DualBranchContrast(loss=L.InfoNCE(tau=0.2), mode='G2G').to(args.device)
         optimizer = Adam(encoder_model.parameters(), lr=args.lr)
 

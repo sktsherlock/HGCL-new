@@ -58,12 +58,13 @@ class GConv(nn.Module):
         return z, g
 
 class Encoder(nn.Module):
-    def __init__(self, encoder, augmentor, pooling, encoder2):
+    def __init__(self, encoder, augmentor, pooling, encoder2, pool_way=None):
         super(Encoder, self).__init__()
         self.encoder = encoder
         self.augmentor = augmentor
         self.pool = pooling
         self.encoder2 = encoder2
+        self.pool_way = pool_way
 
     def forward(self, x, edge_index, batch):
         aug1, aug2 = self.augmentor
@@ -74,7 +75,10 @@ class Encoder(nn.Module):
         z2, g2 = self.encoder(x2, edge_index2, batch)
 
         # 中间层
-        x_1, edge_index_1, edge_attr_1, batch_1, _, _  = self.pool(z, edge_index, batch=batch)
+        if self.pool_way is not 'Edge':
+            x_1, edge_index_1, edge_attr_1, batch_1, _, _  = self.pool(z, edge_index, batch=batch)
+        else:
+            x_1, edge_index_1, batch_1, _ = self.pool(z, edge_index, batch=batch)
         x3, edge_index3, edge_weight3 = aug1(x_1, edge_index_1)
         x4, edge_index4, edge_weight4 = aug2(x_1, edge_index_1)
         z3, g3 = self.encoder2(x_1, edge_index_1, batch_1)
