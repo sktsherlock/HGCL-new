@@ -14,7 +14,7 @@ from models.Encoder import GConv, Encoder
 from torch_geometric.data import DataLoader
 from GCL.models import DualBranchContrast
 import GCL.losses as L
-from torch_geometric.nn import TopKPooling
+from torch_geometric.nn import TopKPooling, SAGPooling, ASAPooling, EdgePooling
 
 # ! wandb
 WANDB_API_KEY = '9e4f340d3a081dd1d047686edb29d362c8933632'
@@ -41,6 +41,7 @@ parser.add_argument('--eval_patience', type=int, default=10, help='the patience 
 parser.add_argument('--num_runs', type=int, default=5, help='the patience of evaluate')
 parser.add_argument('--warmup_epochs', type=int, default=100, help='the number of warmup_epochs')
 parser.add_argument('--test_init', type=bool, default=False, help='whether test the initial state')
+parser.add_argument('--add_to_edge_score', type=float, default=0.5, help='add_to_edge_score')
 
 args = parser.parse_args()
 os.environ['WANDB_API_KEY'] = WANDB_API_KEY
@@ -173,7 +174,16 @@ def main():
         gconv = GConv(input_dim=input_dim, hidden_dim=args.hidden, num_layers=args.layers).to(args.device)
         gconv2 = GConv(input_dim=args.hidden * args.layers, hidden_dim=args.hidden, num_layers=args.layers).to(
             args.device)
-        pooling = TopKPooling(args.hidden * args.layers, ratio=args.pooling_ratio)
+        if args.pooling in {'topk', 'TopK'}:
+            pooling = TopKPooling(args.hidden * args.layers, ratio=args.pooling_ratio)
+        elif args.pooling in {'SAGPooling', 'SAG'}:
+            pooling = SAGPooling(args.hidden * args.layers, ratio=args.pooling_ratio)
+        elif args.pooling in {'EdgePooling', 'Edge'}:
+            pooling = EdgePooling(args.hidden * args.layers, dropout=args.pooling_ratio, add_to_edge_score = args.add_to_edge_score)
+        elif args.pooling in {'ASAPooling', 'ASAP'}:
+            pooling = ASAPooling(args.hidden * args.layers, ratio=args.pooling_ratio)
+        else:
+            raise ValueError('Not implement')
         encoder_model = Encoder(encoder=gconv, augmentor=(aug1, aug2), pooling=pooling, encoder2=gconv2).to(args.device)
         contrast_model = DualBranchContrast(loss=L.InfoNCE(tau=0.2), mode='G2G').to(args.device)
         optimizer = Adam(encoder_model.parameters(), lr=args.lr)
