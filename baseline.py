@@ -43,6 +43,7 @@ parser.add_argument('--warmup_epochs', type=int, default=100, help='the number o
 parser.add_argument('--test_init', type=bool, default=False, help='whether test the initial state')
 parser.add_argument('--add_to_edge_score', type=float, default=0.5, help='add_to_edge_score')
 parser.add_argument('--pooling', type=str, default='ASAP', help='Different pooling methods')
+parser.add_argument('--augment', type=str, default='FE', help='Select Augment Way')
 
 args = parser.parse_args()
 os.environ['WANDB_API_KEY'] = WANDB_API_KEY
@@ -169,8 +170,28 @@ def main():
         # test the randomization model
         print('--------------------------------')
         print('randomization model')
-        aug1 = A.Compose([A.FeatureMasking(pf=args.feature_mask)])
-        aug2 = A.Compose([A.EdgeRemoving(pe=args.edge_drop)])
+        if args.augment in {'Random'}:
+            aug1 = A.RandomChoice([A.RWSampling(num_seeds=1000, walk_length=10),
+                           A.NodeDropping(pn=0.1),
+                           A.FeatureMasking(pf=0.1),
+                           A.EdgeRemoving(pe=0.1)], 1)
+            aug2 = A.RandomChoice([A.RWSampling(num_seeds=1000, walk_length=10),
+                           A.NodeDropping(pn=0.1),
+                           A.FeatureMasking(pf=0.1),
+                           A.EdgeRemoving(pe=0.1)], 1)
+        elif args.augment in {'FE'}:
+            aug1 = A.Compose([A.FeatureMasking(pf=args.feature_mask)])
+            aug2 = A.Compose([A.EdgeRemoving(pe=args.edge_drop)])
+        elif args.augment in {'SNE'}:
+            aug1 = A.Compose([A.RWSampling(num_seeds=1000, walk_length=10),
+                           A.NodeDropping(pn=0.1),
+                           A.EdgeRemoving(pe=0.1)], 1)
+            aug2 = A.Compose([A.RWSampling(num_seeds=1000, walk_length=10),
+                           A.NodeDropping(pn=0.1),
+                           A.EdgeRemoving(pe=0.1)], 1)
+        else:
+            raise ValueError('Not implement for the Augmented way!')
+
 
         gconv = GConv(input_dim=input_dim, hidden_dim=args.hidden, num_layers=args.layers).to(args.device)
         gconv2 = GConv(input_dim=args.hidden * args.layers, hidden_dim=args.hidden, num_layers=args.layers).to(
