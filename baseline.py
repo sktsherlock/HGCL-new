@@ -185,10 +185,10 @@ def main():
             aug1 = A.Compose([A.FeatureMasking(pf=args.feature_mask)])
             aug2 = A.Compose([A.EdgeRemoving(pe=args.edge_drop)])
         elif args.augment in {'SNE'}:
-            aug1 = A.Compose([A.RWSampling(num_seeds=1000, walk_length=10),
+            aug1 = A.RandomChoice([A.RWSampling(num_seeds=1000, walk_length=10),
                            A.NodeDropping(pn=0.1),
                            A.EdgeRemoving(pe=0.1)], 1)
-            aug2 = A.Compose([A.RWSampling(num_seeds=1000, walk_length=10),
+            aug2 = A.RandomChoice([A.RWSampling(num_seeds=1000, walk_length=10),
                            A.NodeDropping(pn=0.1),
                            A.EdgeRemoving(pe=0.1)], 1)
         else:
