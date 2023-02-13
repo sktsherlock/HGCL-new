@@ -34,6 +34,8 @@ parser.add_argument('--tradeoff', type=float, default=0.8, help='权重')
 parser.add_argument('--mix', type=float, default=0.8, help='权重')
 parser.add_argument('--mixup', type=float, default=0.8, help='权重')
 parser.add_argument('--pooling_ratio', type=float, default=0.8, help='pooling ratio')
+parser.add_argument('--dropout', type=float, default=0.2, help='dropout ratio')
+parser.add_argument('--min_score', type=float, default=0.8, help='pooling min_score')
 parser.add_argument('--edge_drop', type=float, default=0.2, help='pooling ratio')
 parser.add_argument('--feature_mask', type=float, default=0.2, help='pooling ratio')
 parser.add_argument('--up', type=float, default=0.4, help='the threshold of the tradeoff')
@@ -197,11 +199,11 @@ def main():
         gconv2 = GConv(input_dim=args.hidden * args.layers, hidden_dim=args.hidden, num_layers=args.layers).to(
             args.device)
         if args.pooling in {'topk', 'TopK'}:
-            pooling = TopKPooling(args.hidden * args.layers, ratio=args.pooling_ratio)
+            pooling = TopKPooling(args.hidden * args.layers, ratio=args.pooling_ratio, min_score=args.min_score)
         elif args.pooling in {'SAGPooling', 'SAG'}:
-            pooling = SAGPooling(args.hidden * args.layers, ratio=args.pooling_ratio)
+            pooling = SAGPooling(args.hidden * args.layers, ratio=args.pooling_ratio, min_score=args.min_score)
         elif args.pooling in {'EdgePooling', 'Edge'}:
-            pooling = EdgePooling(args.hidden * args.layers, dropout=args.pooling_ratio, add_to_edge_score = args.add_to_edge_score)
+            pooling = EdgePooling(args.hidden * args.layers, edge_score_method= EdgePooling.compute_edge_score_softmax, dropout=args.dropout, add_to_edge_score = 0.0)
         elif args.pooling in {'ASAPooling', 'ASAP'}:
             pooling = ASAPooling(args.hidden * args.layers, ratio=args.pooling_ratio)
         else:
