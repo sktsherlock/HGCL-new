@@ -152,8 +152,7 @@ def test_robost(encoder_model, dataloader):
             num_nodes = data.batch.size(0)
             data.x = torch.ones((num_nodes, 1), dtype=torch.float32, device=data.batch.device)
         #! Add Noise or attack for the graphs
-        _, _, g, g1 = encoder_model.get_embedding(data.x, data.edge_index, data.batch)
-        g = args.mixup * g + (1 - args.mixup) * g1
+        _, g = encoder_model.get_embedding(data.x, data.edge_index, data.batch)
         x.append(g)
         y.append(data.y)
     x = torch.cat(x, dim=0)
