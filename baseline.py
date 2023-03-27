@@ -141,6 +141,27 @@ def test(encoder_model, dataloader):
 
     return acc_mean
 
+def test_robost(encoder_model, dataloader):
+    encoder_model.eval()
+    x = []
+    y = []
+    for data in dataloader:
+        data = data.to(args.device)
+        if data.x is None:
+            num_nodes = data.batch.size(0)
+            data.x = torch.ones((num_nodes, 1), dtype=torch.float32, device=data.batch.device)
+        #! Add Noise or attack for the graphs
+        _, _, g, g1 = encoder_model.get_embedding(data.x, data.edge_index, data.batch)
+        g = args.mixup * g + (1 - args.mixup) * g1
+        x.append(g)
+        y.append(data.y)
+    x = torch.cat(x, dim=0)
+    y = torch.cat(y, dim=0)
+
+    acc_mean, acc_std = svc(x, y)
+
+    return acc_mean
+
 def test_0(dataloader):
     from torch_geometric.nn import global_add_pool,global_mean_pool
     x = []
@@ -239,7 +260,7 @@ def main():
                 loss, loss_0, loss_1 = train(encoder_model, contrast_model, dataloader, optimizer)
                 if epoch % log_interval == 0:
                     encoder_model.eval()
-                    acc_mean = test(encoder_model, dataloader)
+                    acc_mean = test_robost(encoder_model, dataloader)
                     Accuracy.append(acc_mean)
                     wandb.log({'Acc': acc_mean})
 

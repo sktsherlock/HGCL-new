@@ -104,7 +104,6 @@ def test(encoder_model, dataloader):
         if data.x is None:
             num_nodes = data.batch.size(0)
             data.x = torch.ones((num_nodes, 1), dtype=torch.float32, device=data.batch.device)
-        #! Add Noise or attack for the graphs
         _, g, *_ = encoder_model(data.x, data.edge_index, data.batch)
         x.append(g)
         y.append(data.y)

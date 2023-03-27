@@ -58,13 +58,14 @@ class GConv(nn.Module):
         return z, g
 
 class Encoder(nn.Module):
-    def __init__(self, encoder, augmentor, pooling, encoder2, pool_way=None):
+    def __init__(self, encoder, augmentor, pooling, encoder2, pool_way=None, noise=None):
         super(Encoder, self).__init__()
         self.encoder = encoder
         self.augmentor = augmentor
         self.pool = pooling
         self.encoder2 = encoder2
         self.pool_way = pool_way
+        self.noise = noise
 
     def forward(self, x, edge_index, batch):
         aug1, aug2 = self.augmentor
@@ -88,6 +89,24 @@ class Encoder(nn.Module):
         z5, g5 = self.encoder2(x4, edge_index4, batch_1)
 
         return z, g, g3, g1, g2, g4, g5, batch_1
+
+    def get_embedding(self, x, edge_index, batch):
+        noise_x, noise_A, _ = self.noise(x, edge_index)
+        z, g = self.encoder(noise_x, noise_A, batch)
+
+        # 中间层
+        if self.pool_way  in {'EdgePooling', 'Edge'}:
+            x_1, edge_index_1, batch_1, _ = self.pool(z, noise_A, batch=batch)
+        elif self.pool_way  in {'ASAPooling', 'ASAP'}:
+            x_1, edge_index_1, edge_attr_1, batch_1, _, = self.pool(z, noise_A, batch=batch)
+        else:
+            x_1, edge_index_1, edge_attr_1, batch_1, _, _ = self.pool(z, noise_A, batch=batch)
+
+        z1, g1 = self.encoder2(x_1, edge_index_1, batch_1)
+
+
+        return z, z1, g, g1
+
 
 class Node_Encoder(nn.Module):
     def __init__(self, encoder, augmentor, hidden_dim, proj_dim):
