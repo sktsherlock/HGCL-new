@@ -24,7 +24,7 @@ warnings.filterwarnings("ignore")
 parser = argparse.ArgumentParser(description="Graph Pooling")
 parser.add_argument('--batch_size', type=int, default=64, help='batch size')
 parser.add_argument('--lr', type=float, default=0.001, help='learning rate')
-parser.add_argument('--dataset', type=str, default='MUTAG',
+parser.add_argument('--dataset', type=str, default='PROTEINS',
                     help='MUTAG/DD/COLLAB/PTC_MR/IMDB-BINARY/REDDIT-BINARY/REDDIT-MULTI-5K/NCI1/PROTEINS')
 parser.add_argument('--epochs', type=int, default=100, help='maximum number of epochs')
 parser.add_argument('--seed', type=int, default=0, help='random seeds')
@@ -35,14 +35,14 @@ parser.add_argument('--mix', type=float, default=0.8, help='权重')
 parser.add_argument('--mixup', type=float, default=0.8, help='权重')
 parser.add_argument('--pooling_ratio', type=float, default=0.8, help='pooling ratio')
 parser.add_argument('--dropout', type=float, default=0.2, help='dropout ratio')
-parser.add_argument('--min_score', type=float, default=0.8, help='pooling min_score')
+parser.add_argument('--min_score', type=float, default=None, help='pooling min_score')
 parser.add_argument('--edge_drop', type=float, default=0.2, help='pooling ratio')
 parser.add_argument('--feature_mask', type=float, default=0.2, help='pooling ratio')
 parser.add_argument('--up', type=float, default=0.4, help='the threshold of the tradeoff')
 parser.add_argument('--eval_patience', type=int, default=10, help='the patience of evaluate')
 parser.add_argument('--num_runs', type=int, default=5, help='the patience of evaluate')
 parser.add_argument('--warmup_epochs', type=int, default=100, help='the number of warmup_epochs')
-parser.add_argument('--test_init', type=bool, default=False, help='whether test the initial state')
+parser.add_argument('--test_init', type=bool, default=True, help='whether test the initial state')
 parser.add_argument('--add_to_edge_score', type=float, default=0.5, help='add_to_edge_score')
 parser.add_argument('--pooling', type=str, default='ASAP', help='Different pooling methods')
 parser.add_argument('--augment', type=str, default='FE', help='Select Augment Way')
@@ -101,7 +101,7 @@ def train(encoder_model, contrast_model, dataloader, optimizer, tradeoff=0.1):
 
         _, g_0, g_1, g1, g2, g3, g4, batch_1 = encoder_model(data.x, data.edge_index, data.batch)
         # Mixup the Graph-level and Subgraph-level embeddings
-        mix_g1 = args.mix * g1 + (1 - args.mix * g4)
+        mix_g1 = args.mix * g1 + (1 - args.mix * g4) # alpha
         mix_g2 = args.mix * g2 + (1 - args.mix * g3)
 
         g1, g2 = [encoder_model.encoder.project(g) for g in [mix_g1, mix_g2]]
@@ -135,6 +135,26 @@ def test(encoder_model, dataloader):
         x.append(g)
         y.append(data.y)
     x = torch.cat(x, dim=0)
+    y = torch.cat(y, dim=0)
+
+    acc_mean, acc_std = svc(x, y)
+
+    return acc_mean
+
+def test_0(dataloader):
+    from torch_geometric.nn import global_add_pool,global_mean_pool
+    x = []
+    y = []
+    gs = []
+    for data in dataloader:
+        data = data.to('cuda')
+        if data.x is None:
+            num_nodes = data.batch.size(0)
+            data.x = torch.ones((num_nodes, 1), dtype=torch.float32, device=data.batch.device)
+        x.append(data.x)
+        y.append(data.y)
+        gs.append(global_add_pool(data.x, data.batch))
+    x = torch.cat(gs, dim=0)
     y = torch.cat(y, dim=0)
 
     acc_mean, acc_std = svc(x, y)
@@ -251,13 +271,14 @@ def test_init():
             input_dim = max(dataset.num_features, 1)
 
             # test the randomization model
-            aug1 = A.Identity()
-            aug2 = A.Identity()
-
-            gconv = GConv(input_dim=input_dim, hidden_dim=args.hidden, num_layers=2).to(args.device)
-            encoder_model = Encoder(encoder=gconv, augmentor=(aug1, aug2)).to(args.device)
-            optimizer = Adam(encoder_model.parameters(), lr=0.01)
-            initial_acc_mean = test(encoder_model, dataloader)
+            # aug1 = A.Identity()
+            # aug2 = A.Identity()
+            #
+            # gconv = GConv(input_dim=input_dim, hidden_dim=args.hidden, num_layers=2).to(args.device)
+            # encoder_model = Encoder(encoder=gconv, augmentor=(aug1, aug2)).to(args.device)
+            # optimizer = Adam(encoder_model.parameters(), lr=0.01)
+            # initial_acc_mean = test(encoder_model, dataloader)
+            initial_acc_mean = test_0(dataloader)
             Acc.append(initial_acc_mean)
             pbar.set_postfix({'Acc': initial_acc_mean})
             pbar.update()
