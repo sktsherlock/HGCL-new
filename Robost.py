@@ -44,6 +44,7 @@ parser.add_argument('--num_runs', type=int, default=5, help='the patience of eva
 parser.add_argument('--warmup_epochs', type=int, default=100, help='the number of warmup_epochs')
 parser.add_argument('--test_init', type=bool, default=False, help='whether test the initial state')
 parser.add_argument('--add_to_edge_score', type=float, default=0.5, help='add_to_edge_score')
+parser.add_argument('--noise', type=float, default=0.1, help='noise 程度')
 parser.add_argument('--pooling', type=str, default='ASAP', help='Different pooling methods')
 parser.add_argument('--augment', type=str, default='FE', help='Select Augment Way')
 
@@ -157,8 +158,8 @@ def main():
                                A.NodeDropping(pn=0.1),
                                A.FeatureMasking(pf=0.1),
                                A.EdgeRemoving(pe=0.1)], 1)
-        Noise = A.Compose([A.NodeDropping(pn=0.2),
-                           A.EdgeRemoving(pe=0.2)])
+        Noise = A.Compose([A.NodeDropping(pn=args.noise),
+                           A.EdgeRemoving(pe=args.noise)])
 
         gconv = GConv(input_dim=input_dim, hidden_dim=args.hidden, num_layers=args.layers).to(args.device)
 
