@@ -45,6 +45,7 @@ parser.add_argument('--warmup_epochs', type=int, default=100, help='the number o
 parser.add_argument('--test_init', type=bool, default=False, help='whether test the initial state')
 parser.add_argument('--add_to_edge_score', type=float, default=0.5, help='add_to_edge_score')
 parser.add_argument('--pooling', type=str, default='ASAP', help='Different pooling methods')
+parser.add_argument('--noise', type=float, default=0.1, help='noise 程度')
 parser.add_argument('--augment', type=str, default='FE', help='Select Augment Way')
 
 args = parser.parse_args()
@@ -200,8 +201,8 @@ def main():
         print('randomization model')
         aug1 = A.Identity()
         aug2 = A.PPRDiffusion(alpha=0.2, use_cache=False)
-        Noise = A.Compose([A.NodeDropping(pn=0.2),
-                           A.EdgeRemoving(pe=0.2)])
+        Noise = A.Compose([A.NodeDropping(pn=args.noise),
+                           A.EdgeRemoving(pe=args.noise)])
         gcn1 = GConv(input_dim=input_dim, hidden_dim=512, num_layers=2).to(args.device)
         gcn2 = GConv(input_dim=input_dim, hidden_dim=512, num_layers=2).to(args.device)
         mlp1 = FC(input_dim=512, output_dim=512)
