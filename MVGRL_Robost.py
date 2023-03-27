@@ -185,7 +185,7 @@ class Encoder(torch.nn.Module):
 def main():
     # 检测是否有可用GPU
     if torch.cuda.is_available():
-        args.device = "cuda:2"
+        args.device = "cuda"
     else:
         args.device = "cpu"
     Acc_Mean = []
