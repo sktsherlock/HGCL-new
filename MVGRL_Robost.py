@@ -24,7 +24,7 @@ warnings.filterwarnings("ignore")
 parser = argparse.ArgumentParser(description="Graph Pooling")
 parser.add_argument('--batch_size', type=int, default=64, help='batch size')
 parser.add_argument('--lr', type=float, default=0.001, help='learning rate')
-parser.add_argument('--dataset', type=str, default='PTC_MR',
+parser.add_argument('--dataset', type=str, default='IMDB-BINARY',
                     help='MUTAG/DD/COLLAB/PTC_MR/IMDB-BINARY/REDDIT-BINARY/REDDIT-MULTI-5K/NCI1/PROTEINS')
 parser.add_argument('--epochs', type=int, default=100, help='maximum number of epochs')
 parser.add_argument('--seed', type=int, default=0, help='random seeds')
@@ -185,7 +185,7 @@ class Encoder(torch.nn.Module):
 def main():
     # 检测是否有可用GPU
     if torch.cuda.is_available():
-        args.device = "cuda"
+        args.device = "cuda:2"
     else:
         args.device = "cpu"
     Acc_Mean = []
