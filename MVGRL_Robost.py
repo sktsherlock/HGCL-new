@@ -10,10 +10,10 @@ import random
 import wandb
 import GCL.augmentors as A
 from eval import *
-from models.Encoder import GConv
 from torch_geometric.data import DataLoader
 from GCL.models import DualBranchContrast
 import GCL.losses as L
+from torch_geometric.nn import GCNConv, global_add_pool
 from torch_geometric.nn import TopKPooling, SAGPooling, ASAPooling, EdgePooling
 
 # ! wandb
@@ -73,6 +73,28 @@ def set_seed(seed):
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.enabled = True
 
+class GConv(nn.Module):
+    def __init__(self, input_dim, hidden_dim, num_layers):
+        super(GConv, self).__init__()
+        self.layers = nn.ModuleList()
+        self.activation = nn.PReLU(hidden_dim)
+        for i in range(num_layers):
+            if i == 0:
+                self.layers.append(GCNConv(input_dim, hidden_dim))
+            else:
+                self.layers.append(GCNConv(hidden_dim, hidden_dim))
+
+    def forward(self, x, edge_index, batch):
+        z = x
+        zs = []
+        for conv in self.layers:
+            z = conv(z, edge_index)
+            z = self.activation(z)
+            zs.append(z)
+        gs = [global_add_pool(z, batch) for z in zs]
+        g = torch.cat(gs, dim=1)
+        return z, g
+
 class FC(nn.Module):
     def __init__(self, input_dim, output_dim):
         super(FC, self).__init__()
@@ -93,7 +115,7 @@ def train(encoder_model, contrast_model, dataloader, optimizer):
     encoder_model.train()
     epoch_loss = 0
     for data in dataloader:
-        data = data.to('cuda')
+        data = data.to(args.device)
         optimizer.zero_grad()
 
         if data.x is None:
@@ -148,6 +170,7 @@ class Encoder(torch.nn.Module):
         h1, h2 = [self.mlp1(h) for h in [z1, z2]]
         g1, g2 = [self.mlp2(g) for g in [g1, g2]]
         return h1, h2, g1, g2
+
     def get_embedding(self, x, edge_index, batch):
         noise_x, noise_A, _ = self.noise(x, edge_index)
         x1, edge_index1, edge_weight1 = self.aug1(noise_x, noise_A)
@@ -161,7 +184,7 @@ class Encoder(torch.nn.Module):
 def main():
     # 检测是否有可用GPU
     if torch.cuda.is_available():
-        args.device = "cuda:2"
+        args.device = "cuda"
     else:
         args.device = "cpu"
     Acc_Mean = []
