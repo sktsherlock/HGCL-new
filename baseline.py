@@ -42,7 +42,7 @@ parser.add_argument('--up', type=float, default=0.4, help='the threshold of the 
 parser.add_argument('--eval_patience', type=int, default=10, help='the patience of evaluate')
 parser.add_argument('--num_runs', type=int, default=5, help='the patience of evaluate')
 parser.add_argument('--warmup_epochs', type=int, default=100, help='the number of warmup_epochs')
-parser.add_argument('--test_init', type=bool, default=True, help='whether test the initial state')
+parser.add_argument('--test_init', type=bool, default=False, help='whether test the initial state')
 parser.add_argument('--add_to_edge_score', type=float, default=0.5, help='add_to_edge_score')
 parser.add_argument('--pooling', type=str, default='ASAP', help='Different pooling methods')
 parser.add_argument('--noise', type=float, default=0.1, help='noise 程度')
