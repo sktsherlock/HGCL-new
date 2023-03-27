@@ -45,6 +45,7 @@ parser.add_argument('--warmup_epochs', type=int, default=100, help='the number o
 parser.add_argument('--test_init', type=bool, default=True, help='whether test the initial state')
 parser.add_argument('--add_to_edge_score', type=float, default=0.5, help='add_to_edge_score')
 parser.add_argument('--pooling', type=str, default='ASAP', help='Different pooling methods')
+parser.add_argument('--noise', type=float, default=0.1, help='noise 程度')
 parser.add_argument('--augment', type=str, default='FE', help='Select Augment Way')
 
 args = parser.parse_args()
@@ -199,7 +200,7 @@ def diffusion(args, epoch, way='stage'):
 def main():
     # 检测是否有可用GPU
     if torch.cuda.is_available():
-        args.device = "cuda:0"
+        args.device = "cuda"
     else:
         args.device = "cpu"
     Acc_Mean = []
@@ -234,8 +235,8 @@ def main():
                            A.EdgeRemoving(pe=0.1)], 1)
         else:
             raise ValueError('Not implement for the Augmented way!')
-
-
+        Noise = A.Compose([A.NodeDropping(pn=args.noise),
+                           A.EdgeRemoving(pe=args.noise)])
         gconv = GConv(input_dim=input_dim, hidden_dim=args.hidden, num_layers=args.layers).to(args.device)
         gconv2 = GConv(input_dim=args.hidden * args.layers, hidden_dim=args.hidden, num_layers=args.layers).to(
             args.device)
@@ -249,7 +250,7 @@ def main():
             pooling = ASAPooling(args.hidden * args.layers, ratio=args.pooling_ratio)
         else:
             raise ValueError('Not implement')
-        encoder_model = Encoder(encoder=gconv, augmentor=(aug1, aug2), pooling=pooling, encoder2=gconv2, pool_way=args.pooling).to(args.device)
+        encoder_model = Encoder(encoder=gconv, augmentor=(aug1, aug2), pooling=pooling, encoder2=gconv2, pool_way=args.pooling, noise=Noise).to(args.device)
         contrast_model = DualBranchContrast(loss=L.InfoNCE(tau=0.2), mode='G2G').to(args.device)
         optimizer = Adam(encoder_model.parameters(), lr=args.lr)
 
